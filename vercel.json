@@ -1,5 +1,27 @@
 {
   "version": 2,
+  "builds": [
+    {
+      "src": "server.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "styles.css",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "assets/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "admin/**",
+      "use": "@vercel/static"
+    }
+  ],
   "routes": [
     {
       "src": "/api/(.*)",
@@ -7,10 +29,15 @@
     },
     {
       "src": "/admin",
-      "dest": "server.js"
+      "dest": "admin/index.html"
     },
     {
-      "handle": "filesystem"
+      "src": "/styles.css",
+      "dest": "styles.css"
+    },
+    {
+      "src": "/assets/(.*)",
+      "dest": "assets/$1"
     },
     {
       "src": "/(.*)",
