@@ -256,29 +256,47 @@
         </div>
 
         <div class="calculator-grid">
-          <!-- Left Column: Slider Calculator -->
-          <div class="calculator-card">
-            <h3>Interactive Calculator</h3>
-            <p class="calc-formula">₹100 = 1 Girl gets sanitary kits + health support for a month</p>
-            
-            <div class="slider-wrapper">
-              <label for="impact-slider" class="visually-hidden">Donation Amount in Rupees</label>
-              <input type="range" id="impact-slider" class="impact-slider" min="300" max="10000" step="100" value="1500">
-              <div class="slider-ticks">
-                <span>₹300</span>
-                <span>₹5,000</span>
-                <span>₹10,000</span>
+          <!-- Left Column: Slider Calculator & QR Code -->
+          <div class="calculator-column">
+            <div class="calculator-card">
+              <h3>Interactive Calculator</h3>
+              <p class="calc-formula">₹100 = 1 Girl gets sanitary kits + health support for a month</p>
+              
+              <div class="slider-wrapper">
+                <label for="impact-slider" class="visually-hidden">Donation Amount in Rupees</label>
+                <input type="range" id="impact-slider" class="impact-slider" min="300" max="10000" step="100" value="1500">
+                <div class="slider-ticks">
+                  <span>₹300</span>
+                  <span>₹5,000</span>
+                  <span>₹10,000</span>
+                </div>
+              </div>
+
+              <div class="calculator-results">
+                <div class="res-amount-label">Your Donation</div>
+                <div class="res-amount-val">₹<span id="calc-amount-display">1,500</span></div>
+                
+                <div class="res-impact-box">
+                  <span class="res-impact-number" id="calc-girls-display">15</span>
+                  <span class="res-impact-text">girls will receive menstrual kits & hygiene support, keeping them in school for the term.</span>
+                </div>
               </div>
             </div>
 
-            <div class="calculator-results">
-              <div class="res-amount-label">Your Donation</div>
-              <div class="res-amount-val">₹<span id="calc-amount-display">1,500</span></div>
-              
-              <div class="res-impact-box">
-                <span class="res-impact-number" id="calc-girls-display">15</span>
-                <span class="res-impact-text">girls will receive menstrual kits & hygiene support, keeping them in school for the term.</span>
+            <!-- Instant Scan & Pay Card -->
+            <div class="qr-payment-card card">
+              <h3>Scan & Donate Instantly</h3>
+              <p style="font-size: 0.85rem; color: var(--color-charcoal-light); margin-bottom: 20px; max-width: 320px;">Use Google Pay, PhonePe, Paytm, or any UPI app to scan and support our cause directly.</p>
+              <div class="qr-wrapper">
+                <img src="/assets/donation-qr.jpg" alt="She Can Foundation Donation UPI QR Code">
               </div>
+              <div class="upi-details">
+                <span>UPI ID: <strong id="upi-id-text">shecanfoundation@upi</strong></span>
+                <button id="copy-upi-btn" class="btn btn-secondary btn-xs">Copy</button>
+              </div>
+              <p style="font-size: 0.75rem; color: var(--color-charcoal-light); margin-top: 14px; margin-bottom: 0; max-width: 340px;">
+                Please submit the transaction screenshot/ID using the contact form below or email us to get your donation receipt.
+              </p>
             </div>
           </div>
 
@@ -545,6 +563,42 @@
     </div>
   </div>
 
+  <!-- Donation Modal -->
+  <div id="donation-modal" class="modal" role="dialog" aria-labelledby="modal-title" aria-modal="true" style="display: none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <button class="modal-close-btn" id="modal-close-btn" aria-label="Close modal">&times;</button>
+      <div class="modal-body">
+        <span class="sub-heading">Direct Contribution</span>
+        <h2 id="modal-title">Support She Can Foundation</h2>
+        <p class="modal-tier-desc">You are contributing <strong id="modal-tier-amount">₹1,500</strong> for <strong id="modal-tier-name">Classroom Pack</strong>.</p>
+        
+        <div class="modal-qr-section">
+          <div class="modal-qr-frame">
+            <img src="/assets/donation-qr.jpg" alt="She Can Foundation Donation QR Code">
+          </div>
+          <p class="modal-qr-instruction">Scan this UPI QR code using Google Pay, PhonePe, Paytm, or any banking app to complete your donation.</p>
+          
+          <div class="modal-upi-box">
+            <span>UPI ID: <strong id="modal-upi-val">shecanfoundation@upi</strong></span>
+            <button id="modal-copy-upi-btn" class="btn btn-secondary btn-xs">Copy ID</button>
+          </div>
+        </div>
+
+        <div class="modal-next-steps">
+          <h4>What to do next?</h4>
+          <ol class="modal-steps-list">
+            <li>Open your UPI app and scan the QR code (or enter the UPI ID).</li>
+            <li>Enter the exact amount <strong id="modal-step-amount">₹1,500</strong> and make the payment.</li>
+            <li>Take a screenshot of the payment receipt or note the Transaction ID.</li>
+            <li>Fill out the form below with your details to receive your 80G tax receipt.</li>
+          </ol>
+          <button id="modal-proceed-btn" class="btn btn-primary btn-block">I have paid / Proceed to Submit Details</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Footer -->
   <footer class="footer">
     <div class="footer-container">
@@ -586,6 +640,9 @@
 
       // Setup Tiers click handlers to auto-populate form
       setupDonationTiers();
+
+      // Setup Copy UPI functionality
+      setupCopyUpi();
 
       // Trigger animated counters for stats bar
       setupStatsCounterAnimation();
@@ -885,38 +942,103 @@
         updateCalculator(); // initialize values
       }
 
-      // Donation Tiers auto-populates contact form
+      // Donation Tiers auto-populates contact form and opens the Scan & Pay Modal
       function setupDonationTiers() {
         const buttons = document.querySelectorAll('.tier-cta');
         const subjectSelect = document.getElementById('subject');
         const messageTextarea = document.getElementById('message');
+        
+        // Modal elements
+        const modal = document.getElementById('donation-modal');
+        const modalClose = document.getElementById('modal-close-btn');
+        const modalBackdrop = modal.querySelector('.modal-backdrop');
+        const modalTierAmount = document.getElementById('modal-tier-amount');
+        const modalTierName = document.getElementById('modal-tier-name');
+        const modalStepAmount = document.getElementById('modal-step-amount');
+        const modalProceed = document.getElementById('modal-proceed-btn');
+
+        const openModal = (amount, tierName) => {
+          modalTierAmount.textContent = `₹${parseInt(amount).toLocaleString('en-IN')}`;
+          modalTierName.textContent = tierName;
+          modalStepAmount.textContent = `₹${parseInt(amount).toLocaleString('en-IN')}`;
+          modal.style.display = 'flex';
+          document.body.style.overflow = 'hidden'; // disable background scroll
+        };
+
+        const closeModal = () => {
+          modal.style.display = 'none';
+          document.body.style.overflow = ''; // restore scroll
+        };
+
+        if (modalClose) modalClose.addEventListener('click', closeModal);
+        if (modalBackdrop) modalBackdrop.addEventListener('click', closeModal);
 
         buttons.forEach(button => {
           button.addEventListener('click', (e) => {
             const amount = button.getAttribute('data-amount');
             const tierName = button.getAttribute('data-tier');
 
-            if (subjectSelect) {
-              subjectSelect.value = "Donate";
-              subjectSelect.dispatchEvent(new Event('change'));
-            }
+            // Open QR Modal
+            openModal(amount, tierName);
 
-            if (messageTextarea) {
-              messageTextarea.value = `I would like to donate ₹${parseInt(amount).toLocaleString('en-IN')} to fund the "${tierName}" tier and support the She Can Foundation. Please provide the donation payment details.`;
-              messageTextarea.dispatchEvent(new Event('input'));
-            }
+            // Configure proceed button to close modal, scroll to contact form and populate details
+            modalProceed.onclick = () => {
+              closeModal();
+              
+              if (subjectSelect) {
+                subjectSelect.value = "Donate";
+                subjectSelect.dispatchEvent(new Event('change'));
+              }
 
-            const contactSection = document.getElementById('contact');
-            if (contactSection) {
-              contactSection.scrollIntoView({ behavior: 'smooth' });
-            }
+              if (messageTextarea) {
+                messageTextarea.value = `I have donated ₹${parseInt(amount).toLocaleString('en-IN')} via UPI scanning for the "${tierName}" tier to support the She Can Foundation. Here are my details to issue the receipt.`;
+                messageTextarea.dispatchEvent(new Event('input'));
+              }
 
-            const nameInput = document.getElementById('name');
-            if (nameInput) {
-              setTimeout(() => nameInput.focus(), 800);
-            }
+              const contactSection = document.getElementById('contact');
+              if (contactSection) {
+                contactSection.scrollIntoView({ behavior: 'smooth' });
+              }
+
+              const nameInput = document.getElementById('name');
+              if (nameInput) {
+                setTimeout(() => nameInput.focus(), 800);
+              }
+            };
           });
         });
+      }
+
+      // Copy UPI ID functionality
+      function setupCopyUpi() {
+        const copyBtn = document.getElementById('copy-upi-btn');
+        const modalCopyBtn = document.getElementById('modal-copy-upi-btn');
+        
+        const copyAction = (btn, textId) => {
+          const upiText = document.getElementById(textId).innerText;
+          navigator.clipboard.writeText(upiText).then(() => {
+            const originalText = btn.innerText;
+            btn.innerText = "Copied!";
+            btn.style.backgroundColor = "var(--color-success)";
+            btn.style.color = "white";
+            btn.style.borderColor = "var(--color-success)";
+            setTimeout(() => {
+              btn.innerText = originalText;
+              btn.style.backgroundColor = "";
+              btn.style.color = "";
+              btn.style.borderColor = "";
+            }, 2000);
+          }).catch(err => {
+            console.error('Failed to copy text: ', err);
+          });
+        };
+
+        if (copyBtn) {
+          copyBtn.addEventListener('click', () => copyAction(copyBtn, 'upi-id-text'));
+        }
+        if (modalCopyBtn) {
+          modalCopyBtn.addEventListener('click', () => copyAction(modalCopyBtn, 'modal-upi-val'));
+        }
       }
 
       // Animated Stat Counters
