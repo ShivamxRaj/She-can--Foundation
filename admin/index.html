@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard | She Can Foundation</title>
+  <!-- SEO & Accessibility -->
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="admin-body">
+
+  <!-- Main Admin Layout Wrapper -->
+  <div id="admin-app">
+    
+    <!-- Login Gate View -->
+    <div id="login-view" class="admin-login-layout" style="display: none;">
+      <div class="card login-card">
+        <h2>Admin Portal</h2>
+        <p class="card-description">Please verify your credentials to view contact form submissions.</p>
+        
+        <form id="login-form" novalidate>
+          <div id="login-alert" class="alert-box error-alert" style="display: none;" role="alert"></div>
+          
+          <div class="form-group">
+            <label for="username" class="form-label">Username</label>
+            <input type="text" id="username" class="form-input" placeholder="e.g., admin" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="password" class="form-label">Password</label>
+            <input type="password" id="password" class="form-input" placeholder="e.g., shecan2024" required>
+          </div>
+          
+          <button type="submit" id="login-submit-btn" class="btn btn-primary btn-block">
+            <span class="btn-text">Authenticate</span>
+            <span class="loader" aria-hidden="true"></span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Dashboard View -->
+    <div id="dashboard-view" style="display: none;">
+      <header class="admin-header">
+        <div class="admin-container">
+          <div class="admin-title-area">
+            <a href="/" class="logo" aria-label="She Can Foundation Home">
+              <img src="/assets/logo.png" alt="She Can Foundation Logo" class="logo-img">
+            </a>
+            <span class="badge-admin">Admin Dashboard</span>
+          </div>
+          <button id="logout-btn" class="btn btn-secondary">Log Out</button>
+        </div>
+      </header>
+
+      <main class="dashboard-layout">
+        <!-- Controls: Search, Export, Submissions count -->
+        <div class="admin-controls">
+          <div class="search-box">
+            <!-- Search icon SVG -->
+            <svg class="search-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="search-input" class="search-input" placeholder="Search by name, email, phone, subject or message..." aria-label="Search submissions">
+          </div>
+          
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <span id="submissions-count" class="info-detail" style="white-space: nowrap; font-weight: 600;">Total: 0 submissions</span>
+            <button id="export-csv-btn" class="btn btn-secondary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; vertical-align: middle;">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              Export CSV
+            </button>
+          </div>
+        </div>
+
+        <!-- Global Dashboard Alert -->
+        <div id="dashboard-alert" class="alert-box error-alert" style="display: none;" role="alert"></div>
+
+        <!-- Submissions Table Card -->
+        <div class="table-card">
+          <div class="table-responsive">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th scope="col">Date (UTC)</th>
+                  <th scope="col">Name</th>
+                  <th scope="col">Email</th>
+                  <th scope="col">Phone</th>
+                  <th scope="col">Subject</th>
+                  <th scope="col">Message</th>
+                  <th scope="col">IP Address</th>
+                  <th scope="col" style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="submissions-tbody">
+                <!-- Rows injected dynamically -->
+              </tbody>
+            </table>
+          </div>
+          <div id="table-empty-state" class="empty-state" style="display: none;">
+            <h3>No submissions found</h3>
+            <p>No messages match your search or filter queries.</p>
+          </div>
+        </div>
+      </main>
+    </div>
+
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const loginView = document.getElementById('login-view');
+      const dashboardView = document.getElementById('dashboard-view');
+      const loginForm = document.getElementById('login-form');
+      const loginAlert = document.getElementById('login-alert');
+      const dashboardAlert = document.getElementById('dashboard-alert');
+      const loginSubmitBtn = document.getElementById('login-submit-btn');
+      
+      const searchInput = document.getElementById('search-input');
+      const submissionsCountLabel = document.getElementById('submissions-count');
+      const exportCsvBtn = document.getElementById('export-csv-btn');
+      const logoutBtn = document.getElementById('logout-btn');
+      const submissionsTbody = document.getElementById('submissions-tbody');
+      const tableEmptyState = document.getElementById('table-empty-state');
+
+      let submissionsData = []; // cached list of loaded submissions
+
+      // Initialize View State
+      checkAuthentication();
+
+      function getAuthToken() {
+        return sessionStorage.getItem('she_can_admin_token');
+      }
+
+      function checkAuthentication() {
+        const token = getAuthToken();
+        if (token) {
+          showDashboard();
+        } else {
+          showLogin();
+        }
+      }
+
+      function showLogin() {
+        dashboardView.style.display = 'none';
+        loginView.style.display = 'flex';
+        document.getElementById('username').focus();
+      }
+
+      async function showDashboard() {
+        loginView.style.display = 'none';
+        dashboardView.style.display = 'block';
+        await fetchSubmissions();
+      }
+
+      // Handle Authentication Form Submit
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        loginAlert.style.display = 'none';
+
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value.trim();
+
+        if (!username || !password) {
+          loginAlert.textContent = 'Please enter both username and password.';
+          loginAlert.style.display = 'block';
+          return;
+        }
+
+        loginSubmitBtn.disabled = true;
+        loginSubmitBtn.classList.add('btn-loading');
+
+        try {
+          const response = await fetch('/api/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            sessionStorage.setItem('she_can_admin_token', data.token);
+            showDashboard();
+            loginForm.reset();
+          } else {
+            loginAlert.textContent = data.error || 'Authentication failed.';
+            loginAlert.style.display = 'block';
+          }
+        } catch (error) {
+          console.error('Login error:', error);
+          loginAlert.textContent = 'Network error. Please try again.';
+          loginAlert.style.display = 'block';
+        } finally {
+          loginSubmitBtn.disabled = false;
+          loginSubmitBtn.classList.remove('btn-loading');
+        }
+      });
+
+      // Handle Logout
+      logoutBtn.addEventListener('click', () => {
+        sessionStorage.removeItem('she_can_admin_token');
+        submissionsData = [];
+        showLogin();
+      });
+
+      // Fetch Submissions from API
+      async function fetchSubmissions() {
+        dashboardAlert.style.display = 'none';
+        const token = getAuthToken();
+
+        try {
+          const response = await fetch('/api/admin/submissions', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          if (response.status === 401) {
+            // Token expired or invalid
+            sessionStorage.removeItem('she_can_admin_token');
+            showLogin();
+            return;
+          }
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            submissionsData = data.submissions || [];
+            renderSubmissions(submissionsData);
+          } else {
+            dashboardAlert.textContent = data.error || 'Failed to retrieve records.';
+            dashboardAlert.style.display = 'block';
+          }
+        } catch (error) {
+          console.error('Fetch submissions error:', error);
+          dashboardAlert.textContent = 'Failed to load records from the server. Check your connection.';
+          dashboardAlert.style.display = 'block';
+        }
+      }
+
+      // Render Submissions in the Table
+      function renderSubmissions(list) {
+        submissionsTbody.innerHTML = '';
+        submissionsCountLabel.textContent = `Total: ${list.length} submission${list.length === 1 ? '' : 's'}`;
+
+        if (list.length === 0) {
+          tableEmptyState.style.display = 'block';
+          return;
+        }
+
+        tableEmptyState.style.display = 'none';
+
+        list.forEach(row => {
+          const tr = document.createElement('tr');
+          
+          // Format Timestamp (UTC format)
+          const date = new Date(row.created_at.replace(' ', 'T') + 'Z'); 
+          const formattedDate = isNaN(date.getTime()) 
+            ? row.created_at 
+            : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + 
+              date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true });
+
+          // Subject Pill background coloring based on subject type
+          let subjectStyle = 'background-color: var(--color-terracotta-light); color: var(--color-terracotta-dark);';
+          if (row.subject === 'Volunteer') {
+            subjectStyle = 'background-color: #EAF2F8; color: #2471A3;';
+          } else if (row.subject === 'Donate') {
+            subjectStyle = 'background-color: #EAF8F2; color: #117864;';
+          } else if (row.subject === 'Partnership') {
+            subjectStyle = 'background-color: #F5EEF8; color: #7D3C98;';
+          }
+
+          const phoneText = row.phone && row.phone.trim() 
+            ? escapeHTML(row.phone) 
+            : '<span style="color: var(--color-charcoal-light); font-style: italic; font-size: 0.8rem;">N/A</span>';
+
+          tr.innerHTML = `
+            <td style="white-space: nowrap;">${formattedDate}</td>
+            <td class="td-name">${escapeHTML(row.name)}</td>
+            <td class="td-email"><a href="mailto:${escapeHTML(row.email)}">${escapeHTML(row.email)}</a></td>
+            <td style="white-space: nowrap;">${phoneText}</td>
+            <td><span class="badge-admin" style="${subjectStyle} font-size: 0.75rem;">${escapeHTML(row.subject || 'General')}</span></td>
+            <td class="td-message">${escapeHTML(row.message)}</td>
+            <td class="td-ip">${escapeHTML(row.ip_address)}</td>
+            <td class="td-actions">
+              <button class="btn-delete" data-id="${row.id}">Delete</button>
+            </td>
+          `;
+
+          // Add delete click handler
+          const deleteBtn = tr.querySelector('.btn-delete');
+          deleteBtn.addEventListener('click', () => handleDelete(row.id, row.name));
+
+          submissionsTbody.appendChild(tr);
+        });
+      }
+
+      // Delete Submission Handler
+      async function handleDelete(id, name) {
+        if (!confirm(`Are you sure you want to delete the submission from "${name}"?`)) {
+          return;
+        }
+
+        const token = getAuthToken();
+        dashboardAlert.style.display = 'none';
+
+        try {
+          const response = await fetch(`/api/admin/submissions/${id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            // Remove locally and re-render
+            submissionsData = submissionsData.filter(item => item.id !== id);
+            renderSubmissions(filterSubmissions(searchInput.value));
+          } else {
+            dashboardAlert.textContent = data.error || 'Failed to delete record.';
+            dashboardAlert.style.display = 'block';
+          }
+        } catch (error) {
+          console.error('Delete submission error:', error);
+          dashboardAlert.textContent = 'A connection error occurred. Could not delete record.';
+          dashboardAlert.style.display = 'block';
+        }
+      }
+
+      // Filter submissions based on query
+      function filterSubmissions(query) {
+        const cleanQuery = query.toLowerCase().trim();
+        if (!cleanQuery) return submissionsData;
+
+        return submissionsData.filter(row => 
+          row.name.toLowerCase().includes(cleanQuery) ||
+          row.email.toLowerCase().includes(cleanQuery) ||
+          (row.phone && row.phone.toLowerCase().includes(cleanQuery)) ||
+          (row.subject && row.subject.toLowerCase().includes(cleanQuery)) ||
+          row.message.toLowerCase().includes(cleanQuery) ||
+          row.ip_address.toLowerCase().includes(cleanQuery)
+        );
+      }
+
+      // Live search input handler
+      searchInput.addEventListener('input', (e) => {
+        const filtered = filterSubmissions(e.target.value);
+        renderSubmissions(filtered);
+      });
+
+      // Export CSV Handler
+      exportCsvBtn.addEventListener('click', () => {
+        if (submissionsData.length === 0) {
+          alert('No submissions available to export.');
+          return;
+        }
+
+        const headers = ['ID', 'Date Created', 'Name', 'Email', 'Phone', 'Subject', 'Message', 'IP Address'];
+        const csvRows = [headers.join(',')];
+
+        submissionsData.forEach(row => {
+          const values = [
+            row.id,
+            `"${row.created_at.replace(/"/g, '""')}"`,
+            `"${row.name.replace(/"/g, '""')}"`,
+            `"${row.email.replace(/"/g, '""')}"`,
+            `"${(row.phone || '').replace(/"/g, '""')}"`,
+            `"${(row.subject || 'General Inquiry').replace(/"/g, '""')}"`,
+            `"${row.message.replace(/"/g, '""').replace(/\n/g, ' ')}"`, // flatten newlines
+            `"${row.ip_address.replace(/"/g, '""')}"`
+          ];
+          csvRows.push(values.join(','));
+        });
+
+        const csvContent = csvRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `she_can_submissions_${new Date().toISOString().slice(0,10)}.csv`);
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      });
+
+      // Utility function to escape HTML entities (XSS Prevention)
+      function escapeHTML(str) {
+        if (!str) return '';
+        return str
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+    });
+  </script>
+</body>
+</html>
